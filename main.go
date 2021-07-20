@@ -10,6 +10,13 @@ import (
 	"text/template"
 )
 
+type serverArgs struct {
+	servingPath string
+	port        string
+}
+
+var serve serverArgs
+
 var UploadPage string = `
 
 <!DOCTYPE html>
@@ -21,12 +28,13 @@ var UploadPage string = `
 	<title>Upload File</title>
   </head>
   <body>
+	<h3>Upload to: {{.Path}} </h3>
 	<form
 	  enctype="multipart/form-data"
-	  action="http://{{.IP}}:8080/upload"
+	  action="http://{{.IP}}:{{.Port}}/upload"
 	  method="post"
 	>
-	  <input type="file" name="myFile" />
+	  <input type="file" name="File" />
 	  <input type="submit" value="upload" />
 	</form>
   </body>
@@ -43,7 +51,7 @@ func display(w http.ResponseWriter, data interface{}) {
 func uploadFile(w http.ResponseWriter, r *http.Request) {
 	r.ParseMultipartForm(10 << 20)
 
-	file, handler, err := r.FormFile("myFile")
+	file, handler, err := r.FormFile("File")
 	if err != nil {
 		fmt.Println("Error Retrieving the File")
 		fmt.Println(err)
@@ -55,7 +63,7 @@ func uploadFile(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("File Size: %+v\n", handler.Size)
 	fmt.Printf("MIME Header: %+v\n", handler.Header)
 
-	dst, err := os.Create(handler.Filename)
+	dst, err := os.Create(fmt.Sprintf("%s\\%s", serve.servingPath, handler.Filename))
 	defer dst.Close()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -86,8 +94,11 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "GET":
 		ip := GetOutboundIP()
+
 		varmap := map[string]interface{}{
-			"IP": ip.String(),
+			"IP":   ip.String(),
+			"Path": serve.servingPath,
+			"Port": serve.port,
 		}
 		display(w, varmap)
 	case "POST":
@@ -95,11 +106,30 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func usage() {
+	fmt.Println("### SimpleGoHTTPServer ###")
+	fmt.Println("\nUsage:\nSimpleGoHTTPServer.exe [port] [path] ")
+	fmt.Println("\nExample:\nSimpleGoHTTPServer.exe C:\\temp 8080\n")
+
+	fmt.Printf("File Upload >> /upload\n\n")
+}
+
 func main() {
-	servingPath := os.Args[1]
-	http.HandleFunc("/upload", uploadHandler)
-	fs := http.FileServer(http.Dir(servingPath))
-	http.Handle("/", fs)
-	fmt.Println("Listening...:0.0.0.0:8080")
-	http.ListenAndServe(":8080", nil)
+	var servingPath string
+	if len(os.Args) <= 2 {
+		usage()
+	} else {
+		serve.port = os.Args[1]
+		serve.servingPath = os.Args[2]
+
+		fmt.Println(servingPath)
+		http.HandleFunc("/upload", uploadHandler)
+		fs := http.FileServer(http.Dir(servingPath))
+		http.Handle("/", fs)
+		fmt.Printf("Serving %s on http://0.0.0.0:%s \n", serve.servingPath, serve.port)
+		fmt.Printf("Upload on http://0.0.0.0:%s/upload \n", serve.port)
+
+		http.ListenAndServe(fmt.Sprintf(":%s", serve.port), nil)
+	}
+
 }
