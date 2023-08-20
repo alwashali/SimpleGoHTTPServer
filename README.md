@@ -1,3 +1,3 @@
 # SimpleGoHTTPServer
 
-Download and upload files via HTTP
+Use the binary if you are lazy to install python for the simple http server. 
