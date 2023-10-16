@@ -129,7 +129,10 @@ func main() {
 		fmt.Printf("Serving %s on http://0.0.0.0:%s \n", serve.servingPath, serve.port)
 		fmt.Printf("Upload on http://0.0.0.0:%s/upload \n", serve.port)
 
-		http.ListenAndServe(fmt.Sprintf(":%s", serve.port), nil)
+		err := http.ListenAndServe(fmt.Sprintf(":%s", serve.port), nil)
+		if err != nil {
+			fmt.Println(err)
+		}
 	}
 
 }
